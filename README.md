@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 # 🚀 AI管理系统 (AI Manager System)
 
 ## 📋 项目简介
@@ -42,22 +41,19 @@ npm run dev
 # 4. 启动后端
 cd ../backend
 python main.py
+```
 
-宝塔部署
-详见 docs/DEPLOY.md
-📚 文档
+### 宝塔部署
+详见 `docs/DEPLOY.md`
 
-API文档
-部署指南
-开发指南
+## 📚 文档
+- [API文档](docs/API.md)
+- [部署指南](docs/DEPLOY.md)
+- [开发指南](docs/DEV.md)
 
-📞 联系方式
+## 📞 联系方式
+- 开发者: [Your Name]
+- 邮箱: [your-email@example.com]
 
-开发者: [Your Name]
-邮箱: [your-email@example.com]
-
-📄 许可证
+## 📄 许可证
 MIT License
-=======
-# ai-manager-system
->>>>>>> 3840c0c898f5b03628347be0473883bbc465e42e
