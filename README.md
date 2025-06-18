@@ -56,7 +56,4 @@ python main.py
 - 邮箱: [your-email@example.com]
 
 ## 📄 许可证
-<<<<<<< HEAD
 MIT License
-=======
->>>>>>> 0e4cb91dcb48eaca1f08d5c6e17a78cb90fb58aa
