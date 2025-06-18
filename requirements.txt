@@ -3,16 +3,21 @@ fastapi==0.104.1
 uvicorn[standard]==0.24.0
 python-multipart==0.0.6
 
-# 数据库
+# 数据库 (同步和异步)
 sqlalchemy==2.0.23
 alembic==1.12.1
 psycopg2-binary==2.9.9
 pymysql==1.1.0
+aiomysql==0.2.0
+aiosqlite==0.19.0
+
+# 配置管理 (更新到新版本)
+pydantic==2.5.0
+pydantic-settings==2.1.0
 
 # 认证
 python-jose[cryptography]==3.3.0
 passlib[bcrypt]==1.7.4
-python-multipart==0.0.6
 
 # HTTP请求
 httpx==0.25.2
@@ -44,10 +49,12 @@ numpy==1.24.4
 loguru==0.7.2
 
 # 工具
-pydantic==2.5.0
 validators==0.22.0
 python-dateutil==2.8.2
 
 # 测试
 pytest==7.4.3
 pytest-asyncio==0.21.1
+
+# 新增依赖 (第2轮框架需要)
+typing-extensions==4.8.0
