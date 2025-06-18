@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # 🚀 AI管理系统 (AI Manager System)
 
 ## 📋 项目简介
@@ -57,3 +58,6 @@ API文档
 
 📄 许可证
 MIT License
+=======
+# ai-manager-system
+>>>>>>> 3840c0c898f5b03628347be0473883bbc465e42e
