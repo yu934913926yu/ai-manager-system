@@ -21,7 +21,7 @@ import uvicorn
 from contextlib import asynccontextmanager
 
 from app.config import get_settings
-from app.database import engine, create_tables
+from app.database import engine, create_tables_async
 
 # 获取配置
 settings = get_settings()
@@ -33,7 +33,7 @@ async def lifespan(app: FastAPI):
     print("🚀 AI管理系统启动中...")
     
     # 创建数据库表
-    await create_tables()
+    await create_tables_async()
     print("✅ 数据库初始化完成")
     
     # 创建必要的目录
