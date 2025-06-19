@@ -6,7 +6,7 @@ AI管理系统 - 数据库连接管理
 """
 
 import os
-from typing import AsyncGenerator
+from typing import AsyncGenerator, Generator
 from sqlalchemy import create_engine, MetaData, text
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
 from sqlalchemy.ext.declarative import declarative_base
@@ -62,7 +62,7 @@ Base = declarative_base()
 metadata = MetaData()
 
 # 🔄 数据库依赖注入
-def get_db() -> Session:
+def get_db() -> Generator[Session, None, None]:
     """
     同步数据库会话依赖
     用于非异步操作
@@ -70,6 +70,9 @@ def get_db() -> Session:
     db = SessionLocal()
     try:
         yield db
+    except Exception:
+        db.rollback()
+        raise
     finally:
         db.close()
 
@@ -136,11 +139,17 @@ def create_database():
 
 def create_tables():
     """
-    创建所有数据表 (同步)
+    创建所有数据表 (同步，更稳定)
     """
     try:
         # 先创建数据库
         create_database()
+        
+        # 导入所有模型 (确保模型被注册)
+        from app.models import (
+            User, Project, Supplier, Task, ProjectFile, 
+            ProjectStatusLog, FinancialRecord, AIConversation, SystemConfig
+        )
         
         # 创建所有表
         Base.metadata.create_all(bind=engine)
@@ -155,6 +164,12 @@ async def create_tables_async():
     创建所有数据表 (异步)
     """
     try:
+        # 导入所有模型
+        from app.models import (
+            User, Project, Supplier, Task, ProjectFile, 
+            ProjectStatusLog, FinancialRecord, AIConversation, SystemConfig
+        )
+        
         async with async_engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
         print("✅ 数据库表创建完成 (异步)")
@@ -219,19 +234,28 @@ def get_db_status() -> dict:
         with engine.connect() as conn:
             if settings.is_mysql:
                 # MySQL状态查询
-                result = conn.execute(text("SHOW STATUS LIKE 'Threads_connected'"))
-                connections = result.fetchone()[1]
-                
-                result = conn.execute(text("SELECT DATABASE() as current_db"))
-                current_db = result.fetchone()[0]
-                
-                return {
-                    "type": "MySQL",
-                    "status": "connected",
-                    "current_database": current_db,
-                    "active_connections": connections,
-                    "url": DATABASE_URL.split('@')[1] if '@' in DATABASE_URL else "localhost"
-                }
+                try:
+                    result = conn.execute(text("SHOW STATUS LIKE 'Threads_connected'"))
+                    connections = result.fetchone()[1]
+                    
+                    result = conn.execute(text("SELECT DATABASE() as current_db"))
+                    current_db = result.fetchone()[0]
+                    
+                    return {
+                        "type": "MySQL",
+                        "status": "connected",
+                        "current_database": current_db,
+                        "active_connections": connections,
+                        "url": DATABASE_URL.split('@')[1] if '@' in DATABASE_URL else "localhost"
+                    }
+                except Exception:
+                    return {
+                        "type": "MySQL",
+                        "status": "connected",
+                        "current_database": "unknown",
+                        "active_connections": "unknown",
+                        "url": DATABASE_URL.split('@')[1] if '@' in DATABASE_URL else "localhost"
+                    }
             else:
                 # SQLite状态
                 db_path = Path(DATABASE_URL.replace('sqlite:///', ''))
@@ -240,7 +264,7 @@ def get_db_status() -> dict:
                     "status": "connected",
                     "database_file": str(db_path),
                     "file_size": f"{db_path.stat().st_size / 1024:.2f} KB" if db_path.exists() else "0 KB",
-                    "readonly": not os.access(db_path.parent, os.W_OK)
+                    "readonly": not os.access(db_path.parent, os.W_OK) if db_path.parent.exists() else True
                 }
                 
     except Exception as e:
@@ -249,47 +273,6 @@ def get_db_status() -> dict:
             "status": "error",
             "error": str(e)
         }
-
-# 🔄 数据库迁移支持
-class DatabaseManager:
-    """数据库管理器类"""
-    
-    @staticmethod
-    def backup_database(backup_path: str = None) -> str:
-        """备份数据库"""
-        if not backup_path:
-            backup_path = settings.backup_dir / f"backup_{settings.DATABASE_URL.split('/')[-1]}_{int(asyncio.get_event_loop().time())}.sql"
-        
-        if settings.is_sqlite:
-            # SQLite备份
-            import shutil
-            db_file = DATABASE_URL.replace('sqlite:///', '')
-            shutil.copy2(db_file, backup_path)
-            print(f"✅ SQLite数据库备份完成: {backup_path}")
-        else:
-            # MySQL备份 (需要mysqldump)
-            import subprocess
-            # 这里可以添加mysqldump命令
-            print("⚠️  MySQL备份需要配置mysqldump工具")
-        
-        return backup_path
-    
-    @staticmethod
-    def get_table_info() -> dict:
-        """获取数据表信息"""
-        inspector = engine.dialect.inspector(engine)
-        tables = inspector.get_table_names()
-        
-        table_info = {}
-        for table in tables:
-            columns = inspector.get_columns(table)
-            table_info[table] = {
-                "columns": len(columns),
-                "column_names": [col['name'] for col in columns]
-            }
-        
-        return table_info
-
 
 if __name__ == "__main__":
     """数据库测试脚本"""
@@ -306,6 +289,9 @@ if __name__ == "__main__":
         # 获取状态
         status = get_db_status()
         print(f"数据库状态: {status}")
+        
+        # 创建表
+        create_tables()
         
         # 测试异步连接
         asyncio.run(test_async_connection())
