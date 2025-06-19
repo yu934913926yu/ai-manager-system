@@ -1,0 +1,73 @@
+// 全局样式文件
+@import './variables.scss';
+@import './mixins.scss';
+@import './common.scss';
+
+// Element Plus 主题自定义
+:root {
+  --el-color-primary: #409eff;
+  --el-color-primary-light-3: #79bbff;
+  --el-color-primary-light-5: #a0cfff;
+  --el-color-primary-light-7: #c6e2ff;
+  --el-color-primary-light-8: #d9ecff;
+  --el-color-primary-light-9: #ecf5ff;
+  --el-color-primary-dark-2: #337ecc;
+  
+  --el-border-radius-base: 6px;
+  --el-border-radius-small: 4px;
+  --el-border-radius-round: 20px;
+  --el-border-radius-circle: 100%;
+}
+
+// 暗色主题
+html.dark {
+  --el-bg-color: #1a1a1a;
+  --el-bg-color-page: #0a0a0a;
+  --el-text-color-primary: #e5eaf3;
+  --el-text-color-regular: #cfd3dc;
+  --el-text-color-secondary: #a3a6ad;
+  --el-text-color-placeholder: #8d9095;
+  --el-text-color-disabled: #6c6e72;
+  --el-border-color: #4c4d4f;
+  --el-border-color-light: #414243;
+  --el-border-color-lighter: #363637;
+  --el-border-color-extra-light: #2b2b2c;
+  --el-border-color-dark: #58585b;
+  --el-border-color-darker: #636466;
+  --el-fill-color: #2b2b2c;
+  --el-fill-color-light: #262727;
+  --el-fill-color-lighter: #1d1d1d;
+  --el-fill-color-extra-light: #191919;
+  --el-fill-color-dark: #39393a;
+  --el-fill-color-darker: #424243;
+  --el-fill-color-blank: transparent;
+  --el-box-shadow: 0px 12px 32px 4px rgba(0, 0, 0, 0.36), 0px 8px 20px rgba(0, 0, 0, 0.72);
+  --el-box-shadow-light: 0px 0px 12px rgba(0, 0, 0, 0.72);
+  --el-box-shadow-lighter: 0px 0px 6px rgba(0, 0, 0, 0.72);
+  --el-box-shadow-dark: 0px 16px 48px 16px rgba(0, 0, 0, 0.72), 0px 12px 32px rgba(0, 0, 0, 0.72), 0px 8px 16px -8px rgba(0, 0, 0, 0.72);
+}
+
+// 响应式断点
+@media (max-width: 768px) {
+  .hidden-xs-only {
+    display: none !important;
+  }
+}
+
+@media (min-width: 768px) {
+  .hidden-sm-and-up {
+    display: none !important;
+  }
+}
+
+@media (max-width: 992px) {
+  .hidden-sm-and-down {
+    display: none !important;
+  }
+}
+
+@media (min-width: 992px) {
+  .hidden-md-and-up {
+    display: none !important;
+  }
+}
