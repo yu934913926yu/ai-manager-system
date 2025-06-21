@@ -1,160 +1,266 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-AI管理系统 - FastAPI应用入口
-支持Windows PowerShell开发环境和宝塔Linux生产环境
+AI管理系统 - 数据库模型定义
+使用SQLAlchemy ORM定义所有数据表结构
 """
 
-import os
-import sys
-from pathlib import Path
+from datetime import datetime
+from typing import Optional
+from sqlalchemy import Column, Integer, String, Text, Float, Boolean, DateTime, Date, ForeignKey, Index, Enum as SQLEnum
+from sqlalchemy.orm import relationship, backref
+from sqlalchemy.ext.declarative import declarative_base
 
-# 添加项目根目录到Python路径 (兼容Windows和Linux)
-project_root = Path(__file__).parent
-sys.path.insert(0, str(project_root))
+from app import StatusEnum, RoleEnum
 
-from fastapi import FastAPI, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
-from fastapi.responses import JSONResponse
-import uvicorn
-from contextlib import asynccontextmanager
+Base = declarative_base()
 
-from app.config import get_settings
-from app.database import engine, create_tables, test_connection
-
-# 获取配置
-settings = get_settings()
-
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    """应用生命周期管理"""
-    # 启动时执行
-    print("🚀 AI管理系统启动中...")
+class User(Base):
+    """用户模型"""
+    __tablename__ = "users"
     
-    # 检查数据库连接
-    if not test_connection():
-        print("❌ 数据库连接失败")
-        raise Exception("Database connection failed")
+    id = Column(Integer, primary_key=True, index=True)
+    username = Column(String(50), unique=True, index=True, nullable=False)
+    email = Column(String(100), unique=True, index=True)
+    full_name = Column(String(100))
+    password_hash = Column(String(255), nullable=False)
     
-    # 创建数据库表 (同步方式，更稳定)
-    try:
-        create_tables()
-        print("✅ 数据库初始化完成")
-    except Exception as e:
-        print(f"❌ 数据库初始化失败: {e}")
-        raise
+    # 角色和权限
+    role = Column(SQLEnum(RoleEnum), default=RoleEnum.VIEWER, nullable=False)
+    is_active = Column(Boolean, default=True)
+    is_admin = Column(Boolean, default=False)
     
-    # 创建必要的目录
-    os.makedirs(settings.UPLOAD_PATH, exist_ok=True)
-    os.makedirs(settings.BACKUP_PATH, exist_ok=True)
-    os.makedirs("logs", exist_ok=True)
-    print("📁 目录结构初始化完成")
+    # 企业微信
+    wechat_userid = Column(String(100), unique=True, index=True)
+    wechat_name = Column(String(100))
     
-    yield
+    # 时间戳
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    last_login = Column(DateTime)
     
-    # 关闭时执行
-    print("🔴 AI管理系统关闭")
+    # 关系
+    created_projects = relationship("Project", back_populates="creator", foreign_keys="Project.creator_id")
+    designed_projects = relationship("Project", back_populates="designer", foreign_keys="Project.designer_id")
+    sales_projects = relationship("Project", back_populates="sales", foreign_keys="Project.sales_id")
+    assigned_tasks = relationship("Task", back_populates="assignee", foreign_keys="Task.assignee_id")
+    created_tasks = relationship("Task", back_populates="creator", foreign_keys="Task.creator_id")
+    ai_conversations = relationship("AIConversation", back_populates="user")
+    
+    def __repr__(self):
+        return f"<User {self.username}>"
 
-# 创建FastAPI应用
-app = FastAPI(
-    title="AI管理系统",
-    description="基于AI的企业级项目管理系统",
-    version="1.0.0",
-    docs_url="/docs" if settings.DEBUG else None,
-    redoc_url="/redoc" if settings.DEBUG else None,
-    lifespan=lifespan
-)
-
-# CORS中间件配置
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"] if settings.DEBUG else [f"https://{settings.DOMAIN}"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-# 静态文件服务 (用于文件上传)
-if os.path.exists(settings.UPLOAD_PATH):
-    app.mount("/uploads", StaticFiles(directory=settings.UPLOAD_PATH), name="uploads")
-
-# 注册API路由
-try:
-    from app.api import projects, tasks, suppliers
-    from app.api import create_api_router
+class Project(Base):
+    """项目模型"""
+    __tablename__ = "projects"
     
-    # 创建API路由器
-    api_router = create_api_router()
+    id = Column(Integer, primary_key=True, index=True)
+    project_number = Column(String(50), unique=True, index=True)  # PRJ20240101001
+    project_name = Column(String(200), nullable=False)
+    customer_name = Column(String(100), nullable=False, index=True)
+    customer_phone = Column(String(50))
+    customer_email = Column(String(100))
     
-    # 注册各模块路由
-    api_router.include_router(projects.router, prefix="/projects", tags=["项目管理"])
-    api_router.include_router(tasks.router, prefix="/tasks", tags=["任务管理"])
-    api_router.include_router(suppliers.router, prefix="/suppliers", tags=["供应商管理"])
+    # 项目类型和状态
+    project_type = Column(String(50))
+    status = Column(String(50), default=StatusEnum.PENDING_QUOTE, index=True)
+    priority = Column(String(20), default="normal")  # low, normal, high, urgent
     
-    # 注册到主应用
-    app.include_router(api_router)
-    print("✅ API路由注册完成")
+    # 金额
+    quoted_price = Column(Float, default=0)
+    cost_price = Column(Float, default=0)
+    deposit_amount = Column(Float, default=0)
+    final_amount = Column(Float, default=0)
     
-except ImportError as e:
-    print(f"⚠️ API路由注册跳过: {e}")
+    # 支付状态
+    deposit_paid = Column(Boolean, default=False)
+    final_paid = Column(Boolean, default=False)
+    
+    # 时间相关
+    deadline = Column(Date)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    completed_at = Column(DateTime)
+    
+    # 项目描述和需求
+    requirements = Column(Text)
+    notes = Column(Text)
+    
+    # 外键关系
+    creator_id = Column(Integer, ForeignKey("users.id"))
+    designer_id = Column(Integer, ForeignKey("users.id"))
+    sales_id = Column(Integer, ForeignKey("users.id"))
+    
+    # 关系
+    creator = relationship("User", back_populates="created_projects", foreign_keys=[creator_id])
+    designer = relationship("User", back_populates="designed_projects", foreign_keys=[designer_id])
+    sales = relationship("User", back_populates="sales_projects", foreign_keys=[sales_id])
+    tasks = relationship("Task", back_populates="project", cascade="all, delete-orphan")
+    status_logs = relationship("ProjectStatusLog", back_populates="project", cascade="all, delete-orphan")
+    files = relationship("ProjectFile", back_populates="project", cascade="all, delete-orphan")
+    financial_records = relationship("FinancialRecord", back_populates="project", cascade="all, delete-orphan")
+    
+    # 索引
+    __table_args__ = (
+        Index('ix_project_status_customer', 'status', 'customer_name'),
+        Index('ix_project_designer_status', 'designer_id', 'status'),
+    )
+    
+    def __repr__(self):
+        return f"<Project {self.project_number}: {self.project_name}>"
 
-# 根路由 - 健康检查
-@app.get("/")
-async def root():
-    """根路由 - 返回系统状态"""
-    return {
-        "message": "🤖 AI管理系统运行正常",
-        "version": "1.0.0",
-        "environment": "development" if settings.DEBUG else "production",
-        "database": "连接正常" if test_connection() else "连接失败"
-    }
+class Task(Base):
+    """任务模型"""
+    __tablename__ = "tasks"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    title = Column(String(200), nullable=False)
+    description = Column(Text)
+    task_type = Column(String(50))  # design, review, production, delivery
+    
+    # 状态和优先级
+    status = Column(String(50), default="pending", index=True)
+    priority = Column(String(20), default="normal")
+    
+    # 时间相关
+    due_date = Column(Date)
+    estimated_hours = Column(Float)
+    actual_hours = Column(Float)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    completed_at = Column(DateTime)
+    
+    # 外键
+    project_id = Column(Integer, ForeignKey("projects.id"), nullable=False)
+    assignee_id = Column(Integer, ForeignKey("users.id"))
+    creator_id = Column(Integer, ForeignKey("users.id"))
+    
+    # 关系
+    project = relationship("Project", back_populates="tasks")
+    assignee = relationship("User", back_populates="assigned_tasks", foreign_keys=[assignee_id])
+    creator = relationship("User", back_populates="created_tasks", foreign_keys=[creator_id])
+    
+    def __repr__(self):
+        return f"<Task {self.title}>"
 
-# 健康检查路由
-@app.get("/health")
-async def health_check():
-    """健康检查接口 - 供宝塔监控使用"""
-    try:
-        db_status = test_connection()
-        return {
-            "status": "healthy" if db_status else "unhealthy",
-            "timestamp": str(Path(__file__).stat().st_mtime),
-            "database": "ok" if db_status else "error",
-            "ai_service": "pending"  # 第7轮后会更新
-        }
-    except Exception as e:
-        raise HTTPException(status_code=503, detail=f"系统异常: {str(e)}")
+class Supplier(Base):
+    """供应商模型"""
+    __tablename__ = "suppliers"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(100), unique=True, nullable=False)
+    company_name = Column(String(200))
+    service_type = Column(String(100), index=True)  # 印刷, 制作, 安装等
+    
+    # 联系信息
+    contact_person = Column(String(50))
+    phone = Column(String(50))
+    email = Column(String(100))
+    address = Column(Text)
+    
+    # 评级和优选
+    rating = Column(Integer, default=5)  # 1-10分
+    is_preferred = Column(Boolean, default=False)
+    
+    # 备注
+    notes = Column(Text)
+    
+    # 时间戳
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # 关系
+    tasks = relationship("Task", secondary="task_suppliers", backref="suppliers")
+    
+    def __repr__(self):
+        return f"<Supplier {self.name}>"
 
-# 全局异常处理
-@app.exception_handler(Exception)
-async def global_exception_handler(request, exc):
-    """全局异常处理"""
-    print(f"❌ 全局异常: {exc}")
-    return JSONResponse(
-        status_code=500,
-        content={
-            "error": "系统内部错误",
-            "detail": str(exc) if settings.DEBUG else "请联系系统管理员"
-        }
+class ProjectStatusLog(Base):
+    """项目状态变更日志"""
+    __tablename__ = "project_status_logs"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    project_id = Column(Integer, ForeignKey("projects.id"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id"))
+    
+    from_status = Column(String(50))
+    to_status = Column(String(50))
+    change_reason = Column(Text)
+    
+    created_at = Column(DateTime, default=datetime.utcnow)
+    
+    # 关系
+    project = relationship("Project", back_populates="status_logs")
+    user = relationship("User")
+    
+    __table_args__ = (
+        Index('ix_status_log_project_created', 'project_id', 'created_at'),
     )
 
-def main():
-    """主函数 - 兼容Windows PowerShell和宝塔部署"""
-    print("🔧 启动配置:")
-    print(f"   DEBUG: {settings.DEBUG}")
-    print(f"   HOST: {settings.HOST}")
-    print(f"   PORT: {settings.PORT}")
-    print(f"   DATABASE: {settings.DATABASE_URL}")
+class ProjectFile(Base):
+    """项目文件"""
+    __tablename__ = "project_files"
     
-    # 启动应用
-    uvicorn.run(
-        "main:app",
-        host=settings.HOST,
-        port=settings.PORT,
-        reload=settings.DEBUG,  # 开发环境自动重载
-        workers=1 if settings.DEBUG else 4,  # 生产环境多进程
-        log_level="info"
-    )
+    id = Column(Integer, primary_key=True, index=True)
+    project_id = Column(Integer, ForeignKey("projects.id"), nullable=False)
+    
+    filename = Column(String(255), nullable=False)
+    file_path = Column(String(500))
+    file_size = Column(Integer)
+    file_type = Column(String(50))
+    
+    uploaded_by = Column(Integer, ForeignKey("users.id"))
+    uploaded_at = Column(DateTime, default=datetime.utcnow)
+    
+    # 关系
+    project = relationship("Project", back_populates="files")
+    uploader = relationship("User")
 
-if __name__ == "__main__":
-    main()
+class AIConversation(Base):
+    """AI对话记录"""
+    __tablename__ = "ai_conversations"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    wechat_userid = Column(String(100), index=True)
+    user_id = Column(Integer, ForeignKey("users.id"))
+    
+    message_type = Column(String(50))  # text, image, voice
+    user_message = Column(Text)
+    ai_response = Column(Text)
+    
+    context_data = Column(Text)  # JSON存储上下文
+    processing_time = Column(Float)  # 处理耗时(秒)
+    
+    created_at = Column(DateTime, default=datetime.utcnow, index=True)
+    
+    # 关系
+    user = relationship("User", back_populates="ai_conversations")
+
+class FinancialRecord(Base):
+    """财务记录"""
+    __tablename__ = "financial_records"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    project_id = Column(Integer, ForeignKey("projects.id"))
+    
+    record_type = Column(String(50))  # income, expense
+    category = Column(String(50))  # deposit, final_payment, supplier_cost
+    amount = Column(Float, nullable=False)
+    
+    description = Column(Text)
+    payment_date = Column(Date)
+    
+    created_by = Column(Integer, ForeignKey("users.id"))
+    created_at = Column(DateTime, default=datetime.utcnow)
+    
+    # 关系
+    project = relationship("Project", back_populates="financial_records")
+    creator = relationship("User")
+
+from sqlalchemy import Table
+
+# 多对多关联表
+task_suppliers = Table('task_suppliers', Base.metadata,
+    Column('task_id', Integer, ForeignKey('tasks.id')),
+    Column('supplier_id', Integer, ForeignKey('suppliers.id'))
+)
