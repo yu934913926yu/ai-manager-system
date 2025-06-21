@@ -1,175 +1,112 @@
 <template>
   <el-card 
-    class="project-card" 
-    :body-style="{ padding: '0' }"
-    @click="$emit('click')"
+    :class="['project-card', { 'is-selected': selected }]"
+    @click="handleClick"
   >
-    <!-- 项目头部 -->
-    <div class="card-header" :style="{ backgroundColor: statusColor }">
-      <div class="header-content">
-        <el-tag :type="statusType" effect="dark" size="small">
-          {{ project.status }}
-        </el-tag>
+    <template #header>
+      <div class="card-header">
+        <div class="project-title">
+          <span class="project-number">{{ project.projectNumber }}</span>
+          <el-tag :type="getStatusType(project.status)" size="small">
+            {{ project.status }}
+          </el-tag>
+        </div>
         <el-dropdown @command="handleCommand" @click.stop>
-          <el-button circle size="small" :icon="MoreFilled" />
+          <el-button :icon="MoreFilled" link />
           <template #dropdown>
             <el-dropdown-menu>
-              <el-dropdown-item command="edit" :icon="Edit">
-                编辑项目
-              </el-dropdown-item>
-              <el-dropdown-item command="status" :icon="Refresh">
-                更新状态
-              </el-dropdown-item>
-              <el-dropdown-item command="delete" :icon="Delete" divided>
-                删除项目
-              </el-dropdown-item>
+              <el-dropdown-item command="view">查看详情</el-dropdown-item>
+              <el-dropdown-item command="edit">编辑</el-dropdown-item>
+              <el-dropdown-item command="delete" divided>删除</el-dropdown-item>
             </el-dropdown-menu>
           </template>
         </el-dropdown>
       </div>
+    </template>
+    
+    <div class="project-info">
+      <div class="info-row">
+        <el-icon><User /></el-icon>
+        <span class="label">客户：</span>
+        <span class="value">{{ project.customerName }}</span>
+      </div>
+      
+      <div class="info-row">
+        <el-icon><Document /></el-icon>
+        <span class="label">项目：</span>
+        <span class="value">{{ project.projectName }}</span>
+      </div>
+      
+      <div class="info-row" v-if="project.totalPrice">
+        <el-icon><Money /></el-icon>
+        <span class="label">金额：</span>
+        <span class="value">¥{{ formatMoney(project.totalPrice) }}</span>
+      </div>
+      
+      <div class="info-row" v-if="project.deadline">
+        <el-icon><Calendar /></el-icon>
+        <span class="label">截止：</span>
+        <span class="value">{{ formatDate(project.deadline) }}</span>
+      </div>
+      
+      <div class="info-row">
+        <el-icon><Avatar /></el-icon>
+        <span class="label">负责人：</span>
+        <span class="value">{{ project.designerName || '未分配' }}</span>
+      </div>
     </div>
     
-    <!-- 项目内容 -->
-    <div class="card-body">
-      <h3 class="project-name">{{ project.projectName }}</h3>
-      
-      <div class="project-info">
-        <div class="info-item">
-          <el-icon><User /></el-icon>
-          <span>{{ project.customerName }}</span>
-        </div>
-        <div class="info-item">
-          <el-icon><UserFilled /></el-icon>
-          <span>{{ project.designerName || '未分配' }}</span>
-        </div>
-        <div class="info-item">
-          <el-icon><Calendar /></el-icon>
-          <span>{{ formatDate(project.createdAt) }}</span>
-        </div>
-      </div>
-      
-      <div class="project-price">
-        <span class="price-label">项目金额</span>
-        <span class="price-value">¥{{ formatMoney(project.totalPrice) }}</span>
-      </div>
-      
-      <!-- 项目进度 -->
-      <div class="project-progress">
-        <div class="progress-header">
-          <span>项目进度</span>
-          <span>{{ project.progress || 0 }}%</span>
-        </div>
+    <div class="card-footer">
+      <span class="create-time">
+        创建于 {{ formatDate(project.createdAt) }}
+      </span>
+      <div class="progress-info" v-if="project.progress">
         <el-progress 
-          :percentage="project.progress || 0" 
-          :show-text="false"
+          :percentage="project.progress" 
           :stroke-width="6"
-          :color="progressColor"
+          :show-text="false"
         />
-      </div>
-      
-      <!-- 标签 -->
-      <div v-if="project.tags?.length" class="project-tags">
-        <el-tag 
-          v-for="tag in project.tags.slice(0, 3)" 
-          :key="tag"
-          size="small"
-          effect="plain"
-        >
-          {{ tag }}
-        </el-tag>
-        <el-tag v-if="project.tags.length > 3" size="small" effect="plain">
-          +{{ project.tags.length - 3 }}
-        </el-tag>
       </div>
     </div>
   </el-card>
 </template>
 
 <script setup>
-import { computed } from 'vue'
-import dayjs from 'dayjs'
-import { 
-  MoreFilled, 
-  Edit, 
-  Delete, 
-  User, 
-  UserFilled,
-  Calendar,
-  Refresh
-} from '@element-plus/icons-vue'
+import { MoreFilled, User, Document, Money, Calendar, Avatar } from '@element-plus/icons-vue'
+import { formatMoney, formatDate } from '@/utils'
 
 const props = defineProps({
   project: {
     type: Object,
     required: true
+  },
+  selected: {
+    type: Boolean,
+    default: false
   }
 })
 
-const emit = defineEmits(['click', 'edit', 'delete', 'status-change'])
+const emit = defineEmits(['click', 'view', 'edit', 'delete'])
 
-// 计算属性
-const statusType = computed(() => {
+const handleClick = () => {
+  emit('click', props.project)
+}
+
+const handleCommand = (command) => {
+  emit(command, props.project)
+}
+
+const getStatusType = (status) => {
   const typeMap = {
     '待报价': 'info',
+    '已报价': '',
     '设计中': 'warning',
-    '待确认': '',
     '生产中': 'warning',
     '待收款': 'danger',
     '已完成': 'success',
-    '已取消': 'info'
+    '已归档': 'info'
   }
-  return typeMap[props.project.status] || 'info'
-})
-
-const statusColor = computed(() => {
-  const colorMap = {
-    '待报价': '#909399',
-    '设计中': '#E6A23C',
-    '待确认': '#409EFF',
-    '生产中': '#E6A23C',
-    '待收款': '#F56C6C',
-    '已完成': '#67C23A',
-    '已取消': '#909399'
-  }
-  return colorMap[props.project.status] || '#909399'
-})
-
-const progressColor = computed(() => {
-  const progress = props.project.progress || 0
-  if (progress < 30) return '#F56C6C'
-  if (progress < 70) return '#E6A23C'
-  return '#67C23A'
-})
-
-// 方法
-const handleCommand = (command) => {
-  switch (command) {
-    case 'edit':
-      emit('edit')
-      break
-    case 'delete':
-      emit('delete')
-      break
-    case 'status':
-      handleStatusChange()
-      break
-  }
-}
-
-const handleStatusChange = () => {
-  // 这里可以弹出状态选择对话框
-  emit('status-change', {
-    projectId: props.project.id,
-    currentStatus: props.project.status
-  })
-}
-
-const formatDate = (date) => {
-  return dayjs(date).format('MM/DD')
-}
-
-const formatMoney = (amount) => {
-  return (amount || 0).toLocaleString('zh-CN', { minimumFractionDigits: 2 })
+  return typeMap[status] || 'info'
 }
 </script>
 
@@ -177,111 +114,79 @@ const formatMoney = (amount) => {
 .project-card {
   cursor: pointer;
   transition: all 0.3s;
-  margin-bottom: 20px;
-  overflow: hidden;
+  margin-bottom: 16px;
 }
 
 .project-card:hover {
-  transform: translateY(-5px);
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+  transform: translateY(-2px);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+}
+
+.project-card.is-selected {
+  border-color: var(--el-color-primary);
 }
 
 .card-header {
-  padding: 12px 16px;
-  color: white;
-}
-
-.header-content {
   display: flex;
   justify-content: space-between;
   align-items: center;
 }
 
-.header-content :deep(.el-button) {
-  background: rgba(255, 255, 255, 0.2);
-  border: none;
-  color: white;
+.project-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
-.header-content :deep(.el-button:hover) {
-  background: rgba(255, 255, 255, 0.3);
-}
-
-.card-body {
-  padding: 16px;
-}
-
-.project-name {
-  margin: 0 0 12px 0;
-  font-size: 16px;
-  font-weight: 500;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.project-number {
+  font-weight: 600;
+  color: var(--el-text-color-primary);
 }
 
 .project-info {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin-bottom: 16px;
+  padding: 8px 0;
 }
 
-.info-item {
+.info-row {
   display: flex;
   align-items: center;
-  gap: 8px;
+  margin-bottom: 12px;
   font-size: 14px;
-  color: #606266;
+  color: var(--el-text-color-regular);
 }
 
-.info-item .el-icon {
-  color: #909399;
+.info-row .el-icon {
+  margin-right: 6px;
+  color: var(--el-text-color-secondary);
 }
 
-.project-price {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 12px;
-  background: #f5f7fa;
-  border-radius: 4px;
-  margin-bottom: 16px;
+.info-row .label {
+  margin-right: 4px;
 }
 
-.price-label {
-  font-size: 14px;
-  color: #606266;
+.info-row .value {
+  color: var(--el-text-color-primary);
+  font-weight: 500;
 }
 
-.price-value {
-  font-size: 18px;
-  font-weight: bold;
-  color: #303133;
+.card-footer {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--el-border-color-lighter);
 }
 
-.project-progress {
-  margin-bottom: 16px;
+.create-time {
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
 }
 
-.progress-header {
-  display: flex;
-  justify-content: space-between;
-  font-size: 14px;
-  color: #606266;
-  margin-bottom: 8px;
+.progress-info {
+  margin-top: 8px;
 }
 
-.project-tags {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-:deep(.el-tag) {
-  max-width: 80px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+@media (max-width: 768px) {
+  .project-card {
+    margin-bottom: 12px;
+  }
 }
 </style>
